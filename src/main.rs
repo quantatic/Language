@@ -10,11 +10,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         TokenRule::new(r"while", Some(Token::While)),
         TokenRule::new(r"if", Some(Token::If)),
         TokenRule::new(r"else", Some(Token::Else)),
-        TokenRule::new(r"[1-9][0-9]*", Some(Token::Int)),
+        TokenRule::new(r"for", Some(Token::For)),
+        TokenRule::new(r"return", Some(Token::Return)),
+        TokenRule::new(r"0|[1-9][0-9]*", Some(Token::Int)),
         TokenRule::new(r"(0|[1-9][0-9]*).[0-9]+", Some(Token::Float)),
         TokenRule::new(r"\s+", None),
         TokenRule::new(r"\+", Some(Token::Plus)),
+        TokenRule::new(r"\+\+", Some(Token::Increment)),
         TokenRule::new(r"\-", Some(Token::Minus)),
+        TokenRule::new(r"\-\-", Some(Token::Decrement)),
         TokenRule::new(r"\*", Some(Token::Mul)),
         TokenRule::new(r"/", Some(Token::Div)),
         TokenRule::new(r"\(", Some(Token::OpenParen)),
@@ -28,23 +32,27 @@ fn main() -> Result<(), Box<dyn Error>> {
         TokenRule::new(r">=", Some(Token::CompareGreaterEquals)),
         TokenRule::new(r"<", Some(Token::CompareLess)),
         TokenRule::new(r"<=", Some(Token::CompareLessEquals)),
+        TokenRule::new(r"//.*", None),
+        TokenRule::new(r"/\*[\s\S]*?\*/", None),
+        TokenRule::new(r#"".*""#, Some(Token::String)),
         TokenRule::new(r"[A-Za-z_]+", Some(Token::Var)),
     ]
         .into_iter()
         .rev()
         .collect::<Result<Vec<_>, _>>()?;
-
     let mut to_tokenize = String::from(
-r"
-while(a > 5) {
-    let i = 1.069;
-    if(i == 1.05) {
-        let new_var = 45444;
-    } else {
-        let new_var = 12349867;
-    }
+r#"
+/**
+    This is an example "for" loop, which is properly documented.
+*/
+for(let i = 0; i < 50; i++) {
+    let my_string = "Some string"; // Here was declare some string
+    my_string = "";                // Here we update the string
+    let some_float = 1.234;        // assign some float
+//  let some_invalid = .5;         // This would be invalid if this line were uncommented
+    return 5;                      // Here we return some value
 }
-"   );
+"#   );
 
     println!("{}", to_tokenize.len());
     

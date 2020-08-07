@@ -1,11 +1,6 @@
-use std::iter::Peekable;
-
 use std::error::Error;
 
-use std::collections::HashMap;
-
 use regex::Regex;
-
 
 #[derive(Clone, Copy, Debug)]
 pub enum Token {
@@ -21,6 +16,7 @@ pub enum Token {
     If,
     Else,
     While,
+    For,
     Int,
     Float,
     Var,
@@ -30,7 +26,11 @@ pub enum Token {
     CompareGreater,
     CompareGreaterEquals,
     CompareLess,
-    CompareLessEquals
+    CompareLessEquals,
+    Increment,
+    Decrement,
+    String,
+    Return
 }
 
 #[derive(Debug)]
@@ -91,16 +91,14 @@ impl<'a> Iterator for Tokenizer<'a> {
 
         if let Some((match_end, maybe_token)) = best_match {
             self.token_start = match_end;
-            while !self.source.is_char_boundary(self.token_start) {
-                self.token_start += 1;
-            }
             
             maybe_token.or_else(|| {
                 self.next()
             })
         } else {
-            let context_upper_index = usize::min(self.token_start+50, self.source.len());
+            let context_upper_index = usize::min(self.token_start+100, self.source.len());
             println!("Syntax error: {}", &self.source[self.token_start..context_upper_index]);
+
             None
         }
     }
