@@ -2,7 +2,7 @@ use std::error::Error;
 
 use regex::Regex;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Token {
     Plus,
     Minus,
@@ -17,9 +17,9 @@ pub enum Token {
     Else,
     While,
     For,
-    Int,
-    Float,
-    Var,
+    Int(u32),
+    Float(f32),
+    Var(String),
     Let,
     Equal,
     CompareEquals,
@@ -29,22 +29,28 @@ pub enum Token {
     CompareLessEquals,
     Increment,
     Decrement,
-    String,
+    String(String),
     Return
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
+pub enum TokenParseRule {
+    Ignore,
+    Constant(Token),
+    Map(fn(&str) -> Token),
+}
+
 pub struct TokenRule {
     pattern: Regex,
-    token: Option<Token>,
+    parse_rule: TokenParseRule
 }
 
 impl TokenRule {
-    pub fn new(pattern: &str, token: Option<Token>) -> Result<Self, Box<dyn Error>> {
+    pub fn new(pattern: &str, parse_rule: TokenParseRule) -> Result<Self, Box<dyn Error>> {
         Ok(
             Self {
                 pattern: Regex::new(pattern)?,
-                token: token
+                parse_rule
             }
         )
     }
@@ -74,7 +80,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             return None
         }
 
-        let best_match: Option<(usize, Option<Token>)> = self.rules
+        let best_match: Option<(usize, TokenParseRule)> = self.rules
             .iter()
             .filter_map(|rule| {
                 rule.pattern.find_at(self.source, self.token_start)
@@ -82,24 +88,34 @@ impl<'a> Iterator for Tokenizer<'a> {
                         matched.start() == self.token_start
                     })
                     .map(|matched| {
-                        (matched.end(), rule.token)
+                        (matched.end(), rule.parse_rule.clone())
                     })
             })
             .max_by(|(x, _), (y, _)| {
                 x.cmp(y)
             });
 
-        if let Some((match_end, maybe_token)) = best_match {
-            self.token_start = match_end;
-            
-            maybe_token.or_else(|| {
-                self.next()
-            })
-        } else {
+        if best_match.is_none() {
             let context_upper_index = usize::min(self.token_start+100, self.source.len());
             println!("Syntax error: {}", &self.source[self.token_start..context_upper_index]);
-
-            None
         }
+
+        best_match.and_then(|(match_end, parse_rule)| {
+            match parse_rule {
+                TokenParseRule::Ignore => {
+                    self.token_start = match_end;
+                    self.next()
+                },
+                TokenParseRule::Constant(res) => {
+                    self.token_start = match_end;
+                    Some(res)
+                },
+                TokenParseRule::Map(map_fn) => {
+                    let res = map_fn(&self.source[self.token_start..match_end]);
+                    self.token_start = match_end;
+                    Some(res)
+                }
+            }
+        })
     }
 }
