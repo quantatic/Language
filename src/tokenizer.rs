@@ -1,52 +1,26 @@
 use std::error::Error;
 
+use std::fmt::Debug;
+
 use regex::Regex;
 
-#[derive(Clone, Debug)]
-pub enum Token {
-    Plus,
-    Minus,
-    Mul,
-    Div,
-    OpenParen,
-    CloseParen,
-    OpenBrace,
-    CloseBrace,
-    Semicolon,
-    If,
-    Else,
-    While,
-    For,
-    Int(u32),
-    Float(f32),
-    Var(String),
-    Let,
-    Equal,
-    CompareEquals,
-    CompareGreater,
-    CompareGreaterEquals,
-    CompareLess,
-    CompareLessEquals,
-    Increment,
-    Decrement,
-    String(String),
-    Return
+pub trait Token: Clone + Debug { }
+
+#[derive(Clone)]
+pub enum TokenParseRule<T: Token> {
+    Ignore,
+    Constant(T),
+    Map(fn(&str) -> T),
 }
 
 #[derive(Clone)]
-pub enum TokenParseRule {
-    Ignore,
-    Constant(Token),
-    Map(fn(&str) -> Token),
-}
-
-pub struct TokenRule {
+pub struct TokenRule<T: Token> {
     pattern: Regex,
-    parse_rule: TokenParseRule
+    parse_rule: TokenParseRule<T>
 }
 
-impl TokenRule {
-    pub fn new(pattern: &str, parse_rule: TokenParseRule) -> Result<Self, Box<dyn Error>> {
+impl<T: Token> TokenRule<T> {
+    pub fn new(pattern: &str, parse_rule: TokenParseRule<T>) -> Result<Self, Box<dyn Error>> {
         Ok(
             Self {
                 pattern: Regex::new(pattern)?,
@@ -56,14 +30,17 @@ impl TokenRule {
     }
 }
 
-pub struct Tokenizer<'a> {
-    rules: Vec<TokenRule>,
+pub struct Tokenizer<'a, T: Token> {
+    rules: Vec<TokenRule<T>>,
     token_start: usize,
     source: &'a str
 }
 
-impl<'a> Tokenizer<'a> {
-    pub fn new(rules: Vec<TokenRule>, source: &'a str) -> Self {
+impl<'a, T: Token> Tokenizer<'a, T> {
+    pub fn new(mut rules: Vec<TokenRule<T>>, source: &'a str) -> Self {
+        // Rules earlier in the list are given higher priority. Max prioritizes elements
+        // later in the list, so we must reverse the rules given to us.
+        rules.reverse();
         Self {
             rules,
             token_start: 0,
@@ -72,15 +49,15 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
-impl<'a> Iterator for Tokenizer<'a> {
-    type Item = Token;
+impl<'a, T: Token> Iterator for Tokenizer<'a, T> {
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.token_start >= self.source.len() {
             return None
         }
 
-        let best_match: Option<(usize, TokenParseRule)> = self.rules
+        let best_match: Option<(usize, TokenParseRule<T>)> = self.rules
             .iter()
             .filter_map(|rule| {
                 rule.pattern.find_at(self.source, self.token_start)
@@ -97,7 +74,7 @@ impl<'a> Iterator for Tokenizer<'a> {
 
         if best_match.is_none() {
             let context_upper_index = usize::min(self.token_start+100, self.source.len());
-            println!("Syntax error: {}", &self.source[self.token_start..context_upper_index]);
+            println!("Syntax error here: ->{}", &self.source[self.token_start..context_upper_index]);
         }
 
         best_match.and_then(|(match_end, parse_rule)| {
