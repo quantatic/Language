@@ -12,8 +12,9 @@ pub enum InstructionToken {
     Sub,
     Mul,
     Div,
-    Jmp(usize),
-    Branch(usize),
+    Label(String),
+    Jmp(String),
+    Branch(String),
     Equals,
     Store(usize),
     Load(usize),
@@ -25,6 +26,16 @@ impl Token for InstructionToken {}
 lazy_static! {
     pub static ref INSTRUCTION_LANGUAGE_RULES: Vec<TokenRule<InstructionToken>> = vec![
         TokenRule::new(
+            r"[A-Za-z]+:",
+            TokenParseRule::Map(|val| {
+                InstructionToken::Label(val[..val.len() - 1].to_string())
+            })
+        ),
+        TokenRule::new(
+            r"JMP [A-Za-z]+",
+            TokenParseRule::Map(|val| { InstructionToken::Jmp(val[4..].to_string()) })
+        ),
+        TokenRule::new(
             r"PUSH (0|\-?[1-9][0-9]*)",
             TokenParseRule::Map(|val| { InstructionToken::Push(val[5..].parse().unwrap()) })
         ),
@@ -35,12 +46,8 @@ lazy_static! {
         TokenRule::new(r"MUL", TokenParseRule::Constant(InstructionToken::Mul)),
         TokenRule::new(r"DIV", TokenParseRule::Constant(InstructionToken::Div)),
         TokenRule::new(
-            r"JMP [0-9]+",
-            TokenParseRule::Map(|val| { InstructionToken::Jmp(val[4..].parse().unwrap()) })
-        ),
-        TokenRule::new(
-            r"BR [0-9]+",
-            TokenParseRule::Map(|val| { InstructionToken::Branch(val[3..].parse().unwrap()) })
+            r"BR [A-Za-z]+",
+            TokenParseRule::Map(|val| { InstructionToken::Branch(val[3..].to_string()) })
         ),
         TokenRule::new(r"EQ", TokenParseRule::Constant(InstructionToken::Equals)),
         TokenRule::new(
@@ -62,15 +69,31 @@ lazy_static! {
 pub struct StackLanguage {
     stack: Vec<f32>,
     locals: HashMap<usize, f32>,
+    labels: HashMap<String, usize>,
     instructions: Vec<InstructionToken>,
     ip: usize,
 }
 
 impl StackLanguage {
-    pub fn new(instructions: Vec<InstructionToken>) -> Self {
+    pub fn new(mut tokens: Vec<InstructionToken>) -> Self {
+        let mut labels = HashMap::new();
+        let mut line = 0;
+        while line < tokens.len() {
+            if let InstructionToken::Label(name) = &tokens[line] {
+                labels.insert(name.clone(), line);
+                tokens.remove(line);
+            } else {
+                line += 1;
+            }
+        }
+
+        let instructions = tokens;
+
+        println!("{:?}", labels);
         StackLanguage {
             stack: Vec::new(),
             locals: HashMap::new(),
+            labels,
             instructions,
             ip: 0,
         }
@@ -113,12 +136,12 @@ impl StackLanguage {
                 let second_val = self.stack.pop().unwrap();
                 self.stack.push(second_val / top_val);
             }
-            InstructionToken::Jmp(addr) => {
-                self.ip = addr;
+            InstructionToken::Jmp(ref label) => {
+                self.ip = self.resolve_label(label);
             }
-            InstructionToken::Branch(addr) => {
+            InstructionToken::Branch(ref label) => {
                 if self.stack.pop().unwrap() != 0.0 {
-                    self.ip = addr;
+                    self.ip = self.resolve_label(label);
                 }
             }
             InstructionToken::Equals => {
@@ -138,9 +161,20 @@ impl StackLanguage {
                 let loaded_val = *self.locals.get(&idx).unwrap();
                 self.stack.push(loaded_val)
             }
+            InstructionToken::Label(_) => {
+                panic!("We should never see a label token during execution");
+            }
             InstructionToken::Halt => return None,
         };
 
         Some(())
+    }
+
+    fn resolve_label(&self, label: &str) -> usize {
+        if let Some(&label_loc) = self.labels.get(label) {
+            label_loc
+        } else {
+            panic!("Cannot find label: {}", label);
+        }
     }
 }

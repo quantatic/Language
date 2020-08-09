@@ -29,16 +29,18 @@ int main(int c, double d) {
     let assembly = String::from(
         r#"
 PUSH 0
+LOOP:
 PEEK
 PUSH 1
 ADD
 STORE 0
 LOAD 0
-PUSH 99999
+PUSH 100000
 EQ
-BR 11
+BR DONE
 LOAD 0
-JMP 1
+JMP LOOP
+DONE:
 PUSH 69420
 PEEK
 HLT
