@@ -1,16 +1,14 @@
 use std::error::Error;
 
-use language::tokenizer::{Token, TokenRule, TokenParseRule, Tokenizer};
+use language::tokenizer::Tokenizer;
 
 use language::example_language::EXAMPLE_LANGUAGE_RULES;
 
-use language::instructions_language::{INSTRUCTION_LANGUAGE_RULES, StackLanguage};
-
-use regex::Regex;
+use language::instructions_language::{StackLanguage, INSTRUCTION_LANGUAGE_RULES};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut to_tokenize = String::from(
-r#"
+    let to_tokenize = String::from(
+        r#"
 /**
     This is an example "for" loop, which is properly documented.
 */
@@ -25,10 +23,11 @@ for(let i = 0; i < 50; i++) {
 int main(int c, double d) {
     printf("%c, %d", c, d);
 }
-"#   );
+"#,
+    );
 
-    let mut assembly = String::from(
-r#"
+    let assembly = String::from(
+        r#"
 PUSH 0
 PEEK
 PUSH 1
@@ -43,21 +42,22 @@ JMP 1
 PUSH 69420
 PEEK
 HLT
-"#);
+"#,
+    );
 
     println!("{}", to_tokenize.len());
-    
+
     let tokenizer = Tokenizer::new(EXAMPLE_LANGUAGE_RULES.clone(), &to_tokenize);
     for tok in tokenizer {
         println!("{:?}", tok);
     }
 
     println!("{}", assembly.len());
-    
+
     let tokenizer = Tokenizer::new(INSTRUCTION_LANGUAGE_RULES.clone(), &assembly);
     let instructions = tokenizer.collect::<Vec<_>>();
     let mut stack_parser = StackLanguage::new(instructions);
-    while let Some(_) = stack_parser.step() { };
-    
+    while stack_parser.step().is_some() {}
+
     Ok(())
 }

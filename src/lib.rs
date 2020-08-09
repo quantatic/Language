@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate lazy_static;
 
-pub mod tokenizer;
 pub mod example_language;
 pub mod instructions_language;
+pub mod tokenizer;
 
 #[cfg(test)]
 mod tests {
