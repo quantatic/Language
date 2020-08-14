@@ -1,4 +1,3 @@
-#[macro_use]
 use crate::tokenizer::{Token, TokenRule, TokenParseRule};
 
 use std::collections::HashMap;

@@ -28,21 +28,31 @@ int main(int c, double d) {
 
     let assembly = String::from(
         r#"
+PUSH 25
+STORE 2
 PUSH 0
-LOOP:
-PEEK
-PUSH 1
-ADD
 STORE 0
+PUSH 1
+STORE 1
+PUSH 15
+LOOP:
 LOAD 0
-PUSH 100000
+PEEK
+LOAD 1
+ADD
+LOAD 1
+STORE 0
+STORE 1
+LOAD 2
+PUSH 1
+SUB
+STORE 2
+LOAD 2
+PUSH 0
 EQ
 BR DONE
-LOAD 0
 JMP LOOP
 DONE:
-PUSH 69420
-PEEK
 HLT
 "#,
     );

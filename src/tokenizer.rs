@@ -35,10 +35,7 @@ pub struct Tokenizer<'a, T: Token> {
 }
 
 impl<'a, T: Token> Tokenizer<'a, T> {
-    pub fn new(mut rules: Vec<TokenRule<T>>, source: &'a str) -> Self {
-        // Rules earlier in the list are given higher priority. Max prioritizes elements
-        // later in the list, so we must reverse the rules given to us.
-        rules.reverse();
+    pub fn new(rules: Vec<TokenRule<T>>, source: &'a str) -> Self {
         Self {
             rules,
             token_start: 0,
@@ -55,6 +52,8 @@ impl<'a, T: Token> Iterator for Tokenizer<'a, T> {
             return None;
         }
 
+        // Rules earlier in the list are given higher priority. Max prioritizes elements
+        // later in the list, so we must reverse the rules given to us.
         let best_match: Option<(usize, TokenParseRule<T>)> = self
             .rules
             .iter()
@@ -64,6 +63,7 @@ impl<'a, T: Token> Iterator for Tokenizer<'a, T> {
                     .filter(|matched| matched.start() == self.token_start)
                     .map(|matched| (matched.end(), rule.parse_rule.clone()))
             })
+			.rev()
             .max_by(|(x, _), (y, _)| x.cmp(y));
 
         if best_match.is_none() {
