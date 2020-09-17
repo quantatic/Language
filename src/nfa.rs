@@ -1,3 +1,5 @@
+use crate::Dfa;
+
 use std::collections::{HashMap, HashSet};
 
 use std::borrow::Borrow;
@@ -6,18 +8,18 @@ use std::hash::Hash;
 type StateIndex = usize;
 
 #[derive(Debug)]
-pub struct Dfa<S, T>
+pub struct Nfa<S, T>
 where
     S: Eq + Hash,
     T: Eq + Hash,
 {
     states: HashMap<S, StateIndex>,
     start_state: Option<StateIndex>,
-    transitions: HashMap<T, HashMap<StateIndex, StateIndex>>,
+    transitions: HashMap<T, HashMap<StateIndex, HashSet<StateIndex>>>,
     accepting_states: HashSet<StateIndex>,
 }
 
-impl<S, T> Dfa<S, T>
+impl<S, T> Nfa<S, T>
 where
     S: Eq + Hash,
     T: Eq + Hash,
@@ -75,28 +77,40 @@ where
 
         self.transitions
             .entry(transition)
-            .or_insert(HashMap::new())
-            .insert(start_state_idx, end_state_idx);
+            .or_insert_with(HashMap::new)
+            .entry(start_state_idx)
+            .or_insert_with(HashSet::new)
+            .insert(end_state_idx);
+    }
+
+    pub fn build_dfa(self) -> Dfa<S, T> {
+        Dfa::new()
     }
 
     pub fn try_match<I>(&mut self, items: I) -> bool
     where
         I: IntoIterator<Item = T>,
     {
-        let mut curr_state_idx = self.start_state.expect("Start state has not been set");
+        let mut curr_states = HashSet::new();
+        curr_states.insert(self.start_state.expect("Start state has not been set"));
 
         for item in items {
-            if let Some(&next_state_idx) = self
-                .transitions
-                .get(&item)
-                .and_then(|states_transition| states_transition.get(&curr_state_idx))
-            {
-                curr_state_idx = next_state_idx;
+            println!("{:?}", curr_states);
+
+            if let Some(next_states) = self.transitions.get(&item).map(|state_transitions| {
+                curr_states
+                    .into_iter()
+                    .filter_map(|state| state_transitions.get(&state))
+                    .flatten()
+                    .copied()
+                    .collect()
+            }) {
+                curr_states = next_states;
             } else {
                 return false;
             }
         }
 
-        self.accepting_states.contains(&curr_state_idx)
+        !self.accepting_states.is_disjoint(&curr_states)
     }
 }
