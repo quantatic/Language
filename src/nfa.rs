@@ -7,6 +7,12 @@ use std::hash::Hash;
 
 type StateIndex = usize;
 
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub enum Transition<T> {
+    Value(T),
+    Epsilon,
+}
+
 #[derive(Debug)]
 pub struct Nfa<S, T>
 where
@@ -15,7 +21,7 @@ where
 {
     states: HashMap<S, StateIndex>,
     start_state: Option<StateIndex>,
-    transitions: HashMap<T, HashMap<StateIndex, HashSet<StateIndex>>>,
+    transitions: HashMap<Transition<T>, HashMap<StateIndex, HashSet<StateIndex>>>,
     accepting_states: HashSet<StateIndex>,
 }
 
@@ -61,7 +67,7 @@ where
         self.accepting_states.insert(accepting_state_idx);
     }
 
-    pub fn add_transition<B>(&mut self, transition: T, start_state: B, end_state: B)
+    pub fn add_transition<B>(&mut self, transition: Transition<T>, start_state: B, end_state: B)
     where
         B: Borrow<S>,
     {
@@ -90,21 +96,35 @@ where
     pub fn try_match<I>(&mut self, items: I) -> bool
     where
         I: IntoIterator<Item = T>,
+        T: std::fmt::Debug,
     {
         let mut curr_states = HashSet::new();
         curr_states.insert(self.start_state.expect("Start state has not been set"));
+        loop {
+            let to_add = self.states_after_transition(&curr_states, Transition::Epsilon);
+
+            if curr_states.is_superset(&to_add) {
+                break;
+            }
+
+            curr_states.extend(&to_add);
+        }
 
         for item in items {
-            println!("{:?}", curr_states);
+            let mut next_states =
+                self.states_after_transition(&curr_states, Transition::Value(item));
 
-            if let Some(next_states) = self.transitions.get(&item).map(|state_transitions| {
-                curr_states
-                    .into_iter()
-                    .filter_map(|state| state_transitions.get(&state))
-                    .flatten()
-                    .copied()
-                    .collect()
-            }) {
+            loop {
+                let to_add = self.states_after_transition(&next_states, Transition::Epsilon);
+
+                if next_states.is_superset(&to_add) {
+                    break;
+                }
+
+                next_states.extend(&to_add);
+            }
+
+            if !next_states.is_empty() {
                 curr_states = next_states;
             } else {
                 return false;
@@ -112,5 +132,22 @@ where
         }
 
         !self.accepting_states.is_disjoint(&curr_states)
+    }
+
+    fn states_after_transition(
+        &self,
+        start_states: &HashSet<StateIndex>,
+        transition: Transition<T>,
+    ) -> HashSet<StateIndex> {
+        self.transitions
+            .get(&transition)
+            .map_or_else(Default::default, |state_transitions| {
+                start_states
+                    .into_iter()
+                    .filter_map(|state| state_transitions.get(&state))
+                    .flatten()
+                    .copied()
+                    .collect()
+            })
     }
 }

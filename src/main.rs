@@ -1,5 +1,5 @@
 use language::Dfa;
-use language::Nfa;
+use language::{Nfa, Transition};
 
 fn main() {
     let mut a: Nfa<u32, char> = Nfa::new();
@@ -10,9 +10,9 @@ fn main() {
     a.set_start_state(0);
     a.add_accepting_state(1);
 
-    a.add_transition('0', 0, 0);
-    a.add_transition('1', 0, 1);
-    a.add_transition('1', 1, 1);
+    a.add_transition(Transition::Value('0'), 0, 0);
+    a.add_transition(Transition::Epsilon, 0, 1);
+    a.add_transition(Transition::Value('1'), 1, 1);
 
     println!("{:#?}", a);
 
